@@ -1,0 +1,76 @@
+name: platevision
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: platevision
+      POSTGRES_USER: platevision
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platevision -d platevision"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+    networks: [private]
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://platevision:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/platevision
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Set BOOTSTRAP_ADMIN_EMAIL in .env}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Set BOOTSTRAP_ADMIN_PASSWORD in .env}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-10}
+      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-20000000}
+      DETECTOR_MODEL: ${DETECTOR_MODEL:-yolo-v9-s-608-license-plate-end2end}
+      OCR_MODEL: ${OCR_MODEL:-cct-s-v2-global-model}
+      LOAD_MODEL_ON_STARTUP: ${LOAD_MODEL_ON_STARTUP:-true}
+    volumes:
+      - model-cache:/models
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    read_only: true
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+    security_opt:
+      - no-new-privileges:true
+    networks: [private]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    depends_on:
+      api:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    networks: [private]
+
+networks:
+  private:
+    driver: bridge
+volumes:
+  pgdata:
+  model-cache:

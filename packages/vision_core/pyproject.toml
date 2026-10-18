@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "platevision-core"
+version = "0.1.0"
+description = "Memory-only license plate detection and recognition adapter"
+requires-python = ">=3.11"
+dependencies = ["fast-alpr[onnx]>=0.3,<2", "numpy>=1.26,<3", "opencv-python-headless>=4.9,<5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
