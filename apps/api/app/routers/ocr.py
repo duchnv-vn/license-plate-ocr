@@ -1,4 +1,4 @@
-"""Authenticated recognition endpoint; no uploaded media persistence."""
+"""Authenticated recognition endpoint and optional detection history."""
 from __future__ import annotations
 import asyncio
 import time
@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import get_config
 from ..database import get_session
 from ..dependencies import authorize
-from ..models import AppSetting, Operation, User
+from ..models import AppSetting, Operation, PlateDetection, User
 from ..services import engine
-from ..image_processing import ACCEPTED, read_memory_only, decode_image
+from ..image_processing import ACCEPTED, read_memory_only, decode_image, encode_plate_crop
 
 router = APIRouter(prefix="/ocr", tags=["OCR"])
 # Enforce a small bound on simultaneous in-memory payloads and inference requests.
@@ -41,14 +41,18 @@ async def predict(request: Request, db: AsyncSession = Depends(get_session), act
                 db.add(Operation(user_id=actor.id, duration_ms=round((time.perf_counter() - start)*1000), plate_count=0, success=False))
                 await db.commit()
             raise HTTPException(503, "OCR inference failed; check model availability and service logs") from None
-        finally:
-            del frame
         duration_ms = round((time.perf_counter() - start)*1000)
         scores = [r.ocr_confidence for r in found if r.ocr_confidence is not None]
         if setting.save_operation_metadata:
-            db.add(Operation(user_id=actor.id, duration_ms=duration_ms,
-                             plate_count=len(found), average_confidence=mean(scores) if scores else None, success=True))
+            operation = Operation(user_id=actor.id, duration_ms=duration_ms,
+                                  plate_count=len(found), average_confidence=mean(scores) if scores else None, success=True)
+            db.add(operation)
+            await db.flush()
+            for reading in found:
+                db.add(PlateDetection(operation_id=operation.id, image=encode_plate_crop(frame, reading.bbox),
+                                      **reading.to_dict()))
             await db.commit()
+        del frame
         return {"width": width, "height": height, "duration_ms": duration_ms,
                 "plates": [reading.to_dict() for reading in found], "plate_count": len(found)}
     finally:

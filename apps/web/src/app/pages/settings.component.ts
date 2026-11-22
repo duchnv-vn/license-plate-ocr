@@ -83,10 +83,10 @@ import { Settings } from "../core/types";
           </div>
           <div class="setting-row">
             <div>
-              <b>Store anonymous operation metadata</b>
+              <b>Save detection history</b>
               <p>
-                Only duration, plate count, scores, timestamp and operator ID.
-                No plate text or images.
+                Store operation metrics, plate details, and cropped plate images.
+                Turning this off stops new records; existing history remains.
               </p>
             </div>
             <label class="toggle"

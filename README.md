@@ -1,6 +1,6 @@
 # PlateVision — On-premise License Plate OCR
 
-A Dockerized, **local-first**, multi-user application for detecting and reading vehicle license plates in uploaded images. Includes an Angular UI, FastAPI service, SQLAlchemy + Alembic/PostgreSQL, and a separate pretrained ONNX model adapter. **No uploaded image is saved to disk or PostgreSQL.**
+A Dockerized, **local-first**, multi-user application for detecting and reading vehicle license plates in uploaded images. Includes an Angular UI, FastAPI service, SQLAlchemy + Alembic/PostgreSQL, and a separate pretrained ONNX model adapter. When history is enabled, PostgreSQL saves plate details and cropped plate images; complete uploads are discarded.
 
 > Delivery status: implementation source with unit tests and Compose setup. Model weights are **not distributed** in this ZIP; pretrained weights must be fetched and cached once (or brought in from an online staging host). Exact model accuracy and latency depend on hardware and plate geography. Validate using representative images before production use.
 
@@ -13,8 +13,8 @@ flowchart LR
   API -->|BGR ndarray in RAM| E[vision_core\nFastALPR ONNX]
   E --> D[YOLOv9 pretrained\nplate boxes]
   E --> O[Pretrained OCR\nplate strings + scores]
-  API -->|plate coordinates & scores, JSON| B
-  API -->|users, settings, anonymous operation metrics| PG[(PostgreSQL)]
+  API -->|recognition JSON and authenticated history crops| B
+  API -->|users, settings, operation metrics, plate crops and details| PG[(PostgreSQL)]
   E -. cache pretrained weights .-> C[(Persistent model-cache volume)]
 ```
 
@@ -102,15 +102,16 @@ PYTHONPATH=packages/vision_core/src:apps/api pytest packages/vision_core/tests a
 - Upload JPEG / PNG / WebP via `POST /api/ocr/predict`, **raw binary body** (`Content-Type: image/jpeg` etc.), not multipart.
 - Detect multiple plates per image, output plate boxes in image pixel coordinates, normalized OCR string, detector score, OCR confidence and available per-character confidences.
 - Render bounding boxes on the **temporary browser preview** (the API sends only coordinates, never returns or persists an annotated image).
-- Dashboard: daily image volume, plates found, mean duration, mean OCR confidence, 7-day trend, and non-image operation history.
-- Runtime threshold and input-size settings in PostgreSQL (no engine retraining), configurable optional storage of numeric operation metadata.
+- Dashboard: daily image volume, plates found, mean duration, mean OCR confidence, 7-day trend, and operation history.
+- Detection history: paginated saved plates with text, confidence, geometry, character scores, and authenticated access to each cropped image.
+- Runtime threshold and input-size settings in PostgreSQL (no engine retraining), with optional storage of operation and detection history.
 - Single-origin Nginx reverse proxy, request buffering disabled, image byte limit and decoded-pixel limit, model weights on a separate persistent volume.
 - Responsive layout for desktop, tablet and mobile.
 
 ## Important limitations and next steps
 
 - **Actual box geometry is plate-level, not character-level.** The included pretrained OCR model yields a plate string and sometimes per-character confidences, but no precise per-character coordinates. The UI explicitly labels this. For exact character boxes, add an independently validated character detection/segmentation model to `vision_core` and export verified coordinates; do not simply subdivide the plate box and call those detections.
-- **No vector database is needed.** ALPR is object detection + OCR, not vector similarity search. PostgreSQL is enough for users, settings and numeric operational metrics.
+- **No vector database is needed.** ALPR is object detection + OCR, not vector similarity search. PostgreSQL stores users, settings, metrics, and plate history.
 - The packaged pipeline is **CPU-only**. For NVIDIA acceleration, use compatible ONNX GPU runtime images and configure execution providers in `vision_core`; verify CUDA compatibility first.
 - Model weights are fetched on first initialization, so the server needs Internet access **once** or an imported warmed model volume. Model inference accuracy for **Vietnamese two-line plates, motorcycles, oblique angles and night images** must be tested; the default global OCR model isn't specifically optimized for every local plate format.
 - Model performance / hardening: inference is intentionally serialized per API process for predictable concurrency. For production throughput, introduce a bounded job queue and multiple isolated inference workers instead of blindly increasing Uvicorn workers.

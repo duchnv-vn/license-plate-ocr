@@ -8,6 +8,7 @@ import { DashboardComponent } from './pages/dashboard.component';
 import { RecognizeComponent } from './pages/recognize.component';
 import { UsersComponent } from './pages/users.component';
 import { SettingsComponent } from './pages/settings.component';
+import { HistoryComponent } from './pages/history.component';
 
 function authGuard() {
   const auth = inject(AuthService);
@@ -28,6 +29,7 @@ export const routes: Routes = [
   {path:'',component:ShellComponent,canActivate:[authGuard],children:[
     {path:'dashboard',component:DashboardComponent},
     {path:'recognize',component:RecognizeComponent,canActivate:[operatorGuard]},
+    {path:'history',component:HistoryComponent},
     {path:'users',component:UsersComponent,canActivate:[adminGuard]},
     {path:'settings',component:SettingsComponent,canActivate:[adminGuard]},
     {path:'',pathMatch:'full',redirectTo:'dashboard'},

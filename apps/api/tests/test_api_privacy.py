@@ -1,7 +1,7 @@
 import io
 import pytest
 from PIL import Image
-from app.image_processing import decode_image
+from app.image_processing import decode_image, encode_plate_crop
 
 
 def test_image_decoding_from_bytes_without_filesystem(tmp_path):
@@ -20,14 +20,15 @@ def test_invalid_image_rejected():
     assert error.value.status_code == 422
 
 
-def test_operation_model_has_no_sensitive_fields():
-    from pathlib import Path
-    source = (Path(__file__).parents[1] / "app/models.py").read_text()
-    fields = source[source.index("class Operation(Base):"):]
-    assert "Mapped[bytes]" not in fields
-    assert "plate_text:" not in fields
-    assert "filename:" not in fields
-    assert "image:" not in fields
+def test_plate_crop_contains_only_the_detection_and_is_bounded():
+    import cv2
+    import numpy as np
+    frame = np.zeros((800, 1200, 3), dtype=np.uint8)
+    frame[100:300, 200:1000] = (40, 120, 220)
+    encoded = encode_plate_crop(frame, {"x": 200, "y": 100, "width": 800, "height": 200})
+    crop = cv2.imdecode(np.frombuffer(encoded, dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert crop.shape[:2] == (128, 512)
+    assert np.allclose(crop[20, 20], (40, 120, 220), atol=3)
 
 
 @pytest.mark.asyncio

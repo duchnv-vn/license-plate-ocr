@@ -26,8 +26,8 @@ A startup may be slow for the first model download, but model cache persists ind
 2. Angular POSTs **raw file bytes** to `/api/ocr/predict`. It never uses multipart uploads (which commonly spool to temporary files in Starlette).
 3. Nginx has `proxy_request_buffering off`, `client_body_buffer_size 32m`, `client_max_body_size 25m`, and a `tmpfs` for `/tmp`, preventing disk-backed temp uploads. Note: under abnormal memory pressure OS swap may still expose transient memory pages to encrypted/unencrypted swap. For strict media-free operation, disable or encrypt swap and prevent host-side request-body logging or packet capture.
 4. FastAPI consumes request chunks using `Request.stream()` into a bounded `bytearray`. PIL/OpenCV process pixels in RAM; model receives a NumPy BGR array.
-5. No filesystem image writes occur, and neither PostgreSQL nor model-cache have image columns. The API response contains only text, scores and geometry. No server-generated annotated images.
-6. `Operation` records contain: `timestamp`, user ID, duration, count, mean OCR score, success. These records may be disabled in admin settings. **License plate text is never recorded**.
+5. No filesystem image writes occur. When detection history is enabled, PostgreSQL stores cropped plate JPEGs and recognition details; the complete uploaded image is discarded. No server-generated annotated images are stored.
+6. `Operation` records contain timestamp, user ID, duration, count, mean OCR score and success. `PlateDetection` records contain the detected text, scores, geometry, and cropped image. New records can be disabled in admin settings.
 7. API `Cache-Control: no-store`, Nginx `Cache-Control: no-store` and `--no-access-log` limit accidental response and URL logging. Do not enable request-body logs in proxies or WAFs.
 
 ## Security considerations
@@ -43,12 +43,12 @@ A startup may be slow for the first model download, but model cache persists ind
 
 ## Retention and dashboard behavior
 
-Operation history has no plate text, media, original filenames, or bounding boxes. Metadata is stored only if `save_operation_metadata=true`. Disabling it stops **new** metadata records, but does not delete old records. To remove stored history, truncate `operations` explicitly during a maintenance window after appropriate retention approval.
+Operation and plate history is stored only if `save_operation_metadata=true`. Disabling it stops **new** records, but does not delete old records. Existing operation metrics from before migration 002 have no associated plate images. To remove stored history, truncate both tables during a maintenance window after appropriate retention approval. PostgreSQL backups also contain plate crops and text.
 
 ```bash
 # Example: backup database before changing history
 # docker compose exec -T db pg_dump -U platevision platevision > backup.sql
-# docker compose exec db psql -U platevision -d platevision -c 'TRUNCATE operations;'
+# docker compose exec db psql -U platevision -d platevision -c 'TRUNCATE plate_detections, operations;'
 ```
 
 ## Model choice

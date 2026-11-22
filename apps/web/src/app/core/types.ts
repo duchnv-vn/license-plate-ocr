@@ -22,3 +22,10 @@ export interface Dashboard {
   trend: {date: string; count: number}[];
   recent: {id:number; timestamp:string; duration_ms:number; plate_count:number; average_confidence:number|null; success:boolean}[];
 }
+export interface DetectionHistoryRecord extends Plate {
+  id: number; operation_id: number; timestamp: string; user_id: number | null;
+  duration_ms: number; image_url: string;
+}
+export interface DetectionHistoryPage {
+  items: DetectionHistoryRecord[]; total: number; page: number; page_size: number;
+}

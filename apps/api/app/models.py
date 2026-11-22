@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, Float, Boolean, ForeignKey, Integer, JSON
+from sqlalchemy import String, DateTime, Float, Boolean, ForeignKey, Integer, JSON, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 from .database import Base
 
@@ -30,7 +30,7 @@ class AppSetting(Base):
 
 
 class Operation(Base):
-    """Metadata only: intentionally no filename, plate number, or image."""
+    """Recognition request metrics. Individual detections are stored separately."""
     __tablename__ = "operations"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
@@ -39,3 +39,16 @@ class Operation(Base):
     plate_count: Mapped[int] = mapped_column(Integer)
     average_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PlateDetection(Base):
+    __tablename__ = "plate_detections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    operation_id: Mapped[int] = mapped_column(ForeignKey("operations.id", ondelete="CASCADE"), index=True)
+    text: Mapped[str] = mapped_column(String(64))
+    detection_confidence: Mapped[float] = mapped_column(Float)
+    ocr_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bbox: Mapped[dict] = mapped_column(JSON)
+    character_confidences: Mapped[list] = mapped_column(JSON)
+    region: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    image: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)

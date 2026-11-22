@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from .config import get_config
 from .database import engine as db_engine
-from .routers import auth, users, settings, ocr, dashboard
+from .routers import auth, users, settings, ocr, dashboard, history
 from .services import engine as model_engine
 
 logger = logging.getLogger("platevision")
@@ -42,5 +42,5 @@ async def health():
     return {"status": "ok"}
 
 
-for route in [auth.router, users.router, settings.router, ocr.router, dashboard.router]:
+for route in [auth.router, users.router, settings.router, ocr.router, dashboard.router, history.router]:
     app.include_router(route, prefix="/api")

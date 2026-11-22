@@ -31,6 +31,12 @@ import { AuthService } from "../core/auth.service";
           ><span class="nav-icon">⌗</span> Plate recognition</a
         >
         <a
+          routerLink="/history"
+          routerLinkActive="selected"
+          (click)="menuOpen = false"
+          ><span class="nav-icon">▤</span> Detection history</a
+        >
+        <a
           *ngIf="auth.isAdmin()"
           routerLink="/users"
           routerLinkActive="selected"

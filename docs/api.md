@@ -6,8 +6,11 @@ Base: same-origin `http://localhost:8080/api` (or your TLS proxy origin). All en
 |---|---|---|---|
 | POST | `/auth/login` | Public | Email and password → `access_token` |
 | GET | `/auth/me` | Any authenticated | Signed-in account |
-| GET | `/dashboard/summary` | Any authenticated | Aggregate metrics + 7-day trends + recent anonymized operations |
-| POST | `/ocr/predict` | Admin/operator | In-memory raw binary JPEG/PNG/WebP → plate readings |
+| GET | `/dashboard/summary` | Any authenticated | Aggregate metrics + 7-day trends + recent operations |
+| POST | `/ocr/predict` | Admin/operator | Raw binary JPEG/PNG/WebP → plate readings and optional history |
+| GET | `/history?page=1&page_size=20` | Any authenticated | Paginated plate detections (page size 1–100) |
+| GET | `/history/{id}` | Any authenticated | Plate details and image URL |
+| GET | `/history/{id}/image` | Any authenticated | Cropped plate JPEG |
 | GET | `/settings` | Any authenticated | Current OCR settings |
 | PUT | `/settings` | Admin | Replace settings |
 | GET | `/users` | Admin | List user accounts |
@@ -53,6 +56,8 @@ Example response (illustrative schema, not a model accuracy claim):
 
 `character_confidences` is either one value per recognized character **when provided by the model and aligned**, or an empty array. These scores are *not* character-level bounding boxes. `bbox` is an actual plate detection rectangle in original image pixels (after EXIF orientation correction). `text` may be empty when OCR confidence is below the threshold; a detection can still be returned.
 
+When `save_operation_metadata` is true, each successful request saves an operation and one history record per detected plate. The record includes text, scores, box, region, character confidences, timestamp, operator ID, processing time, and a JPEG crop capped at 512 pixels on its long side. The full uploaded image and filename are not saved. Turning the setting off stops new records; existing history remains. Operations from before this feature have no plate images.
+
 ### `PUT /settings`
 
 ```json
@@ -92,4 +97,4 @@ Thresholds are probability fractions (0–1); detection minimum 0.2 is the under
 - `429`: excessive sign-in attempts (per API instance)
 - `503`: model inference failed or model unavailable
 
-OCR payloads are discarded after processing and never included in API logs. Image response caching is disabled.
+Complete uploaded images are discarded after processing and are never included in API logs. If history is enabled, cropped plate images are retained in PostgreSQL. Image response caching is disabled.

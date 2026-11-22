@@ -89,7 +89,7 @@ import { Dashboard } from "../core/types";
         <div class="system-facts">
           <div><span>Recognition engine</span><b>ONNX · FastALPR</b></div>
           <div>
-            <span>Image storage</span><b class="privacy-text">Disabled</b>
+            <span>Saved images</span><b>Plate crops when enabled</b>
           </div>
           <div><span>Deployment</span><b>Local / On-prem</b></div>
           <div>
@@ -103,9 +103,9 @@ import { Dashboard } from "../core/types";
       <div class="panel-header">
         <div>
           <h2>Recent operations</h2>
-          <p>No images, filenames, or plate numbers are stored in history.</p>
+          <p>Operation metrics; plate details and crops are in detection history.</p>
         </div>
-        <a routerLink="/recognize" class="inline-link">New recognition →</a>
+        <a routerLink="/history" class="inline-link">View detection history →</a>
       </div>
       <div class="table-scroll">
         <table class="data-table">
